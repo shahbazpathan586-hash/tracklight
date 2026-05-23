@@ -1,94 +1,46 @@
-// server.js — TrackLight v2
-// Express server with admin auth, share-link auth for client views,
-// and all endpoints needed by the dashboard.
+// server.js — TrackLight v2 (open-access build, no login)
+// Anyone with the URL has full admin access. Share links still work
+// for read-only client views.
 
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3747;
 
-// ---------- CONFIG ----------
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-railway-env';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-// Note: if you don't set ADMIN_PASSWORD via Railway env, the password is "admin123"
-// — change it before going live.
-
 // ---------- MIDDLEWARE ----------
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '256kb' }));
-app.use(cookieParser());
 
-// Trust Railway proxy so secure cookies work
+// Trust Railway proxy
 app.set('trust proxy', 1);
 
-// ---------- AUTH HELPERS ----------
-function issueToken(res) {
-  const token = jwt.sign({ admin: true }, JWT_SECRET, { expiresIn: '30d' });
-  res.cookie('tl_token', token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 30 * 86400000,
-  });
-  return token;
-}
+// ---------- AUTH (DISABLED) ----------
+// These are now no-ops. Anyone hitting any endpoint has full access.
+// Share-link tokens are still honored for read endpoints (used by the public
+// report renderer), but they're no longer required.
+function requireAdmin(req, res, next) { next(); }
 
-function isAuthed(req) {
-  const t = req.cookies?.tl_token;
-  if (!t) return false;
-  try { jwt.verify(t, JWT_SECRET); return true; } catch { return false; }
-}
-
-function requireAdmin(req, res, next) {
-  if (!isAuthed(req)) return res.status(401).json({ error: 'unauthorized' });
+async function requireReadAccess(req, res, next) {
+  // If a share token is present, attach it so the public report can still bind to one site.
+  const token = req.query.token || req.headers['x-share-token'];
+  if (token) {
+    try {
+      const link = await db.getShareLink(token);
+      if (link) req.shareLink = link;
+    } catch {}
+  }
   next();
 }
 
-// Share-link OR admin auth: allows public read-only access via ?token=
-async function requireReadAccess(req, res, next) {
-  if (isAuthed(req)) return next();
-  const token = req.query.token || req.headers['x-share-token'];
-  if (token) {
-    const link = await db.getShareLink(token);
-    if (link) {
-      // Enforce that the request is for that site only
-      const askedSite = req.query.siteId || req.params.siteId;
-      if (!askedSite || askedSite === link.site_id) {
-        req.shareLink = link;
-        return next();
-      }
-    }
-  }
-  res.status(401).json({ error: 'unauthorized' });
-}
-
 // ============================================================
-// AUTH ROUTES
+// AUTH ROUTES (stubs — kept so the frontend's auth checks don't error)
 // ============================================================
-app.post('/api/auth/login', async (req, res) => {
-  const { password } = req.body || {};
-  if (!password) return res.status(400).json({ error: 'password required' });
-  // Plain compare — keep simple. For prod, hash and store in env-set bcrypt hash.
-  const ok = password === ADMIN_PASSWORD;
-  if (!ok) return res.status(401).json({ error: 'invalid password' });
-  issueToken(res);
-  res.json({ ok: true });
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('tl_token');
-  res.json({ ok: true });
-});
-
-app.get('/api/auth/me', (req, res) => {
-  res.json({ authed: isAuthed(req) });
-});
+app.post('/api/auth/login', (req, res) => res.json({ ok: true }));
+app.post('/api/auth/logout', (req, res) => res.json({ ok: true }));
+app.get('/api/auth/me', (req, res) => res.json({ authed: true }));
 
 // ============================================================
 // TRACKING ENDPOINTS (public — anyone can POST events to their site)
@@ -420,7 +372,7 @@ async function startAlertLoop() {
     app.listen(PORT, () => {
       console.log(`TrackLight v2 running on port ${PORT}`);
       console.log(`Storage: ${db.USE_PG ? 'Postgres' : 'in-memory (data will be lost on restart)'}`);
-      console.log(`Admin password: ${ADMIN_PASSWORD === 'admin123' ? '⚠️  default "admin123" — set ADMIN_PASSWORD env var' : 'set via env'}`);
+      console.log(`Auth: DISABLED — open access to anyone with the URL`);
     });
     startAlertLoop();
   } catch (e) {
