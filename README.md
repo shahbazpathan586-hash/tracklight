@@ -7,7 +7,7 @@ A self-hosted analytics platform for SEO agencies. Manage all your client sites 
 | Feature | v1 | v2 |
 |---|---|---|
 | Storage | `data.json` (wiped on redeploy) | **PostgreSQL** (persistent) |
-| Login | None — anyone could see data | **Admin password required** |
+| Login | None — anyone could see data | **None** (open access by design — see warning below) |
 | Sites view | Single hardcoded site | **Multi-site agency overview** with health status |
 | AI traffic | Lumped into "Direct" | **AI traffic dashboard** — ChatGPT, Claude, Perplexity, Gemini, Copilot, You.com, Phind, DeepSeek, Grok, Poe |
 | Health score | None | **0–100 score** per site combining traffic, forms, conversions, bounce rate, freshness |
@@ -35,23 +35,21 @@ A self-hosted analytics platform for SEO agencies. Manage all your client sites 
 
 In your Railway project: **+ New** → **Database** → **Add PostgreSQL**.
 
-Railway creates a `DATABASE_URL` variable automatically. You don't need to copy it — the next step links it.
-
 ### Step 2 — Link the database to your service
 
 In your TrackLight service: **Variables** → **Add Reference** → pick `DATABASE_URL` from the Postgres service.
 
-### Step 3 — Set the admin password
+That's it. Railway redeploys → open your `.railway.app` URL → you're in.
 
-In **Variables**, add:
+### ⚠️ Open access — no login
 
-```
-ADMIN_PASSWORD=YOUR_STRONG_PASSWORD_HERE
-JWT_SECRET=any-random-long-string-here
-NODE_ENV=production
-```
+This build has **no password and no login screen**. Anyone with your Railway URL can see all client data and add/delete sites.
 
-Railway will redeploy. Done. Open your `.railway.app` URL → log in.
+If you want to keep it private:
+- Don't share or post the URL publicly
+- Don't let it get indexed by search engines (add `noindex` meta tag if concerned)
+- Consider using Railway's built-in URL randomization (the default `.up.railway.app` subdomains are unguessable, but treat the URL like a password)
+- If your agency grows, you can re-enable login later — the auth code is just stubbed out, not deleted
 
 ### What you get on first load
 
@@ -78,10 +76,8 @@ Client opens the URL → sees a read-only public report with their site health s
 ## Local development
 
 ```bash
-# Install postgres locally and create a tracklight db
 npm install
 export DATABASE_URL="postgresql://postgres:password@localhost:5432/tracklight"
-export ADMIN_PASSWORD="admin123"
 export PGSSL=false       # disable SSL for local postgres
 npm start
 ```
@@ -90,47 +86,44 @@ Open `http://localhost:3747`.
 
 ## API quick reference
 
-All endpoints under `/api/`. Most require either an admin session cookie or a `?token=SHARE_TOKEN`.
+All endpoints under `/api/`. **No authentication required** — anyone with the URL can call any endpoint.
 
-| Endpoint | Method | Auth | Purpose |
-|---|---|---|---|
-| `/api/auth/login` | POST | none | `{password}` → sets session cookie |
-| `/api/auth/logout` | POST | session | Clears session |
-| `/api/auth/me` | GET | none | `{authed: bool}` |
-| `/api/track` | POST | none | Tracking event ingestion (called by embed script) |
-| `/api/heatmap` | POST | none | Heatmap click batch ingestion |
-| `/api/overview` | GET | admin | All sites with health status |
-| `/api/stats?siteId=&days=` | GET | admin or token | Full stats for a site |
-| `/api/realtime?siteId=` | GET | admin or token | Online visitors, last 20 min |
-| `/api/ai-traffic?siteId=&days=` | GET | admin or token | AI referral breakdown |
-| `/api/page-movers?siteId=` | GET | admin or token | Week-over-week gainers / losers |
-| `/api/health-score?siteId=` | GET | admin or token | 0–100 score with breakdown |
-| `/api/sites` | GET / POST | admin | List / add sites |
-| `/api/sites/:id` | DELETE | admin | Delete site + all data |
-| `/api/sites/:id/reset` | POST | admin | Wipe events but keep site |
-| `/api/annotations?siteId=` | GET | admin or token | Timeline annotations |
-| `/api/alerts` | GET / POST | admin | Alert rules CRUD |
-| `/api/alerts/evaluate` | POST | admin | Run alert checks now (also runs every 15min automatically) |
-| `/api/alert-history` | GET | admin | Recent triggers |
-| `/api/share-links?siteId=` | GET / POST | admin | Share link CRUD |
-| `/api/share-info?token=` | GET | none | Resolve token to site (for public report) |
-| `/api/seed-demo` | POST | admin | Load 30 days of demo data into the `demo` site |
-| `/api/health` | GET | none | Liveness check |
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/auth/me` | GET | Returns `{authed: true}` always (stub) |
+| `/api/track` | POST | Tracking event ingestion (called by embed script) |
+| `/api/heatmap` | POST | Heatmap click batch ingestion |
+| `/api/overview` | GET | All sites with health status |
+| `/api/stats?siteId=&days=` | GET | Full stats for a site |
+| `/api/realtime?siteId=` | GET | Online visitors, last 20 min |
+| `/api/ai-traffic?siteId=&days=` | GET | AI referral breakdown |
+| `/api/page-movers?siteId=` | GET | Week-over-week gainers / losers |
+| `/api/health-score?siteId=` | GET | 0–100 score with breakdown |
+| `/api/sites` | GET / POST | List / add sites |
+| `/api/sites/:id` | DELETE | Delete site + all data |
+| `/api/sites/:id/reset` | POST | Wipe events but keep site |
+| `/api/annotations?siteId=` | GET / POST | Timeline annotations |
+| `/api/alerts` | GET / POST | Alert rules CRUD |
+| `/api/alerts/evaluate` | POST | Run alert checks now (also runs every 15min) |
+| `/api/alert-history` | GET | Recent triggers |
+| `/api/share-links?siteId=` | GET / POST | Share link CRUD |
+| `/api/share-info?token=` | GET | Resolve token to site (for public report) |
+| `/api/seed-demo` | POST | Load 30 days of demo data into the `demo` site |
+| `/api/health` | GET | Liveness check |
 
 ## Important warnings
 
-- **Default password is `admin123`** if you don't set `ADMIN_PASSWORD`. Change it before going live.
-- **`JWT_SECRET` defaults to a placeholder.** Set it to anything random and long.
-- **Tracking endpoints are intentionally unauthenticated** — they have to be reachable by any browser visiting any tracked site. We just record what comes in; the embed script only reports what you tell it to.
+- **No login.** Anyone who finds your Railway URL has full control.
 - **Without Postgres, data lives in memory and disappears on restart.** Always link a Postgres database in production.
+- **Tracking endpoints have no validation** beyond `siteId` + `event` — they have to be reachable by any browser visiting any tracked site.
 
 ## Tech stack
 
 - Node.js 18+ + Express 4
 - PostgreSQL (via `pg`)
-- JWT auth via `jsonwebtoken` + `cookie-parser`
 - Chart.js (CDN) for client-side charts
 - Single-page vanilla JS dashboard — no React, no build step
+- No authentication (open access)
 
 ---
 
