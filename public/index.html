@@ -33,7 +33,7 @@
     font-size: 13px; margin-bottom: 12px; display: none; }
 
   /* APP LAYOUT */
-  .app { display: none; min-height: 100vh; }
+  .app { display: block; min-height: 100vh; }
   .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; background: var(--panel);
     border-right: 1px solid var(--border); padding: 20px 12px; overflow-y: auto; }
   .logo { font-size: 20px; font-weight: 700; padding: 0 8px 20px; display: flex; align-items: center; gap: 10px; }
@@ -187,17 +187,6 @@
 </head>
 <body>
 
-<!-- ===== LOGIN ===== -->
-<div id="loginWrap" class="login-wrap">
-  <div class="login-box">
-    <h1>📊 TrackLight</h1>
-    <p class="sub">Agency analytics platform</p>
-    <div id="loginErr" class="login-err"></div>
-    <input id="loginPwd" type="password" placeholder="Admin password" autocomplete="current-password" />
-    <button id="loginBtn">Sign in</button>
-  </div>
-</div>
-
 <!-- ===== APP ===== -->
 <div id="app" class="app">
   <aside class="sidebar">
@@ -211,8 +200,6 @@
     <div class="nav-item" data-view="alerts">🔔 Alerts <span class="num" id="navAlertCount"></span></div>
     <div class="nav-item" data-view="share">🔗 Share Links</div>
     <div class="nav-item" data-view="install">⚙️ Install Code</div>
-    <div class="nav-section">Account</div>
-    <div class="nav-item" id="logoutBtn">↪ Sign out</div>
   </aside>
 
   <main class="main">
@@ -262,10 +249,7 @@ async function api(path, opts = {}) {
 
   const r = await fetch(url, o);
   if (r.status === 401) {
-    if (state.shareToken) {
-      throw new Error('Share link expired or invalid');
-    }
-    showLogin();
+    if (state.shareToken) throw new Error('Share link expired or invalid');
     throw new Error('unauthorized');
   }
   const data = await r.json().catch(() => ({}));
@@ -296,46 +280,17 @@ function fmtRelativeTime(iso) {
 }
 
 //==================================================================
-// LOGIN / AUTH
+// VIEW SWITCHING (no auth — open access)
 //==================================================================
-function showLogin() {
-  document.getElementById('loginWrap').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('publicReport').style.display = 'none';
-}
-
 function showApp() {
-  document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('publicReport').style.display = 'none';
 }
 
-document.getElementById('loginBtn').onclick = async () => {
-  const pwd = document.getElementById('loginPwd').value;
-  const err = document.getElementById('loginErr');
-  err.style.display = 'none';
-  try {
-    const r = await fetch('/api/auth/login', {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pwd }),
-    });
-    if (!r.ok) { err.textContent = 'Invalid password'; err.style.display = 'block'; return; }
-    showApp();
-    await loadOverview();
-  } catch (e) {
-    err.textContent = e.message; err.style.display = 'block';
-  }
-};
-
-document.getElementById('loginPwd').addEventListener('keypress', e => {
-  if (e.key === 'Enter') document.getElementById('loginBtn').click();
-});
-
-document.getElementById('logoutBtn').onclick = async () => {
-  await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-  showLogin();
-};
+function showPublic() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('publicReport').style.display = 'block';
+}
 
 //==================================================================
 // NAVIGATION
@@ -1120,26 +1075,17 @@ async function renderPublicReport(token) {
 // BOOTSTRAP
 //==================================================================
 (async () => {
-  // Check for share token in URL → render public report
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
   if (token) {
+    showPublic();
     renderPublicReport(token);
     return;
   }
 
-  // Otherwise: check auth and show app or login
-  try {
-    const me = await fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json());
-    if (me.authed) {
-      showApp();
-      await loadOverview();
-    } else {
-      showLogin();
-    }
-  } catch {
-    showLogin();
-  }
+  // Open access — show the app immediately
+  showApp();
+  try { await loadOverview(); } catch (e) { console.error(e); }
 })();
 
 // Close modal on background click
