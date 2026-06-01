@@ -1,0 +1,19 @@
+{
+  "name": "tracklight",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --check db.js && node --check server.js && node --check public/tracklight.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "lowdb": "^7.0.1",
+    "uuid": "^14.0.0"
+  }
+}
