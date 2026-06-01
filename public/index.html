@@ -264,6 +264,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="nav-item" data-view="health"><i class="ti ti-heartbeat"></i> Health score</div>
     <div class="nav-item" data-view="insights"><i class="ti ti-alert-triangle"></i> Alerts</div>
     <div class="nav-item" data-view="ai"><i class="ti ti-sparkles"></i> AI traffic</div>
+    <div class="nav-item" data-view="conversions"><i class="ti ti-target-arrow"></i> Conversions</div>
     <div class="nav-item" data-view="pages"><i class="ti ti-files"></i> Top pages</div>
     <div class="nav-item" data-view="sources"><i class="ti ti-arrow-fork"></i> Traffic sources</div>
     <div class="nav-item" data-view="heatmap"><i class="ti ti-flame"></i> Heatmaps</div>
@@ -353,6 +354,7 @@ let state = {
   health: null,
   insights: { alerts: [], nextActions: [] },
   funnelAnalysis: null,
+  conversions: null,
   onboarding: null,
   report: null,
   view: 'dashboard',
@@ -413,7 +415,7 @@ async function loadAll() {
   if (!state.currentSite) return;
   state.days = parseInt(document.getElementById('daySelect').value) || 30;
   try {
-    const [s, hp, a, m, agency, ai, health, insights, funnelAnalysis, onboarding, report] = await Promise.all([
+    const [s, hp, a, m, agency, ai, health, insights, funnelAnalysis, conversions, onboarding, report] = await Promise.all([
       fetch(`${API}/api/stats?siteId=${state.currentSite}&days=${state.days}`).then(r => r.json()),
       fetch(`${API}/api/heatmap/pages?siteId=${state.currentSite}`).then(r => r.json()),
       fetch(`${API}/api/annotations?siteId=${state.currentSite}`).then(r => r.json()),
@@ -423,6 +425,7 @@ async function loadAll() {
       fetch(`${API}/api/health-score?siteId=${state.currentSite}&days=7`).then(r => r.json()).catch(() => null),
       fetch(`${API}/api/insights?siteId=${state.currentSite}&days=7`).then(r => r.json()).catch(() => ({ alerts:[], nextActions:[] })),
       fetch(`${API}/api/funnel-analysis?siteId=${state.currentSite}&days=${state.days}`).then(r => r.json()).catch(() => null),
+      fetch(`${API}/api/conversions?siteId=${state.currentSite}&days=${state.days}`).then(r => r.json()).catch(() => null),
       fetch(`${API}/api/onboarding?siteId=${state.currentSite}`).then(r => r.json()).catch(() => null),
       fetch(`${API}/api/client-report?siteId=${state.currentSite}&days=${state.days}`).then(r => r.json()).catch(() => null)
     ]);
@@ -435,6 +438,7 @@ async function loadAll() {
     state.health = health;
     state.insights = insights;
     state.funnelAnalysis = funnelAnalysis;
+    state.conversions = conversions;
     state.onboarding = onboarding;
     state.report = report;
     if (!state.heatmapPage || !state.heatmapPages.some(p => p.page === state.heatmapPage)) {
@@ -486,7 +490,7 @@ function showView(v) {
   state.view = v;
   const titles = {
     agency:'Agency overview', dashboard:'Dashboard', realtime:'Real-time',
-    health:'Health score', insights:'Alerts', ai:'AI traffic',
+    health:'Health score', insights:'Alerts', ai:'AI traffic', conversions:'Conversions',
     heatmap:'Heatmaps', sessions:'Sessions', funnel:'Conversion funnel',
     pages:'Top pages', sources:'Traffic sources', report:'Client report',
     onboarding:'Tracking checklist', annotations:'Annotations',
@@ -517,6 +521,7 @@ function renderView() {
     case 'health':    c.innerHTML = healthScoreHTML(); break;
     case 'insights':  c.innerHTML = insightsHTML(); break;
     case 'ai':        c.innerHTML = aiTrafficHTML(); break;
+    case 'conversions': c.innerHTML = conversionsHTML(); break;
     case 'heatmap':   c.innerHTML = heatmapViewHTML(); break;
     case 'sessions':  c.innerHTML = sessionsViewHTML(); break;
     case 'funnel':    c.innerHTML = funnelViewHTML(); break;
@@ -710,6 +715,69 @@ function aiTrafficHTML() {
   `;
 }
 
+function conversionsHTML() {
+  const c = state.conversions;
+  if (!c) return '<div class="card"><div class="loader">Loading conversions...</div></div>';
+  const s = c.summary || {};
+  return `
+    <div class="metrics">
+      <div class="metric"><div class="metric-lbl">Converted sessions</div><div class="metric-val">${fmt(s.convertedSessions)}</div><div class="metric-sub">Main conversion metric</div></div>
+      <div class="metric"><div class="metric-lbl">Lead forms</div><div class="metric-val">${fmt(s.leadForms)}</div><div class="metric-sub">Form completions</div></div>
+      <div class="metric"><div class="metric-lbl">Add to carts</div><div class="metric-val">${fmt(s.addToCarts)}</div><div class="metric-sub">Ecommerce intent</div></div>
+      <div class="metric"><div class="metric-lbl">Purchases</div><div class="metric-val">${fmt(s.purchases)}</div><div class="metric-sub">${s.revenue ? '$' + fmt(s.revenue) + ' revenue' : 'Thank-you/manual'}</div></div>
+      <div class="metric"><div class="metric-lbl">Micro actions</div><div class="metric-val">${fmt((s.phoneClicks || 0) + (s.emailClicks || 0))}</div><div class="metric-sub">Phone/email clicks</div></div>
+    </div>
+    <div class="banner" style="margin-bottom:0">
+      <i class="ti ti-info-circle"></i>
+      <div><b>How conversions are counted:</b> lead form submits and add-to-cart clicks both mark a session as converted. Purchases and custom <code>TrackLight.track('conversion')</code> events also count.</div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Conversion types</span><span class="card-sub">Real tracked events</span></div>
+        ${c.byType && c.byType.length ? '<div class="pages-list">' + c.byType.map(t => `
+          <div class="pg-row">
+            <div class="pg-path">${escapeHtml(t.label)}</div>
+            <div><div class="pg-bar-bg"><div class="pg-bar-fill" style="width:${pct(t.count, c.byType[0].count)}%"></div></div></div>
+            <div class="pg-num">${fmt(t.count)}</div>
+          </div>
+          ${t.revenue ? `<div style="font-size:11px;color:var(--hint);margin:-4px 0 4px 0">$${fmt(t.revenue)} revenue</div>` : ''}
+        `).join('') + '</div>' : '<p style="color:var(--hint);font-size:12px">No conversion events yet</p>'}
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Top conversion pages</span></div>
+        ${c.topPages && c.topPages.length ? '<div class="pages-list">' + c.topPages.map(p => `
+          <div class="pg-row">
+            <div class="pg-path">${escapeHtml(p.page)}</div>
+            <div><div class="pg-bar-bg"><div class="pg-bar-fill" style="width:${pct(p.count, c.topPages[0].count)}%"></div></div></div>
+            <div class="pg-num">${fmt(p.count)}</div>
+          </div>`).join('') + '</div>' : '<p style="color:var(--hint);font-size:12px">No conversion pages yet</p>'}
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Conversion sources</span></div>
+        ${c.bySource && c.bySource.length ? '<div class="pages-list">' + c.bySource.map(r => `
+          <div class="pg-row">
+            <div class="pg-path">${escapeHtml(r.source)}</div>
+            <div><div class="pg-bar-bg"><div class="pg-bar-fill" style="width:${pct(r.convertedSessions, c.bySource[0].convertedSessions)}%"></div></div></div>
+            <div class="pg-num">${fmt(r.convertedSessions)}</div>
+          </div>`).join('') + '</div>' : '<p style="color:var(--hint);font-size:12px">No converted sessions yet</p>'}
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">Recent conversion events</span></div>
+        ${c.recent && c.recent.length ? '<div class="sess-list">' + c.recent.slice(0, 12).map(e => `
+          <div class="sess-row">
+            <div class="sess-icon"><i class="ti ti-target-arrow"></i></div>
+            <div style="flex:1;min-width:0">
+              <div class="sess-pg">${escapeHtml(e.label)} · ${escapeHtml(e.page)}</div>
+              <div class="sess-info">${relTime(e.ts)}${e.meta && e.meta.productId ? ' · product ' + escapeHtml(e.meta.productId) : ''}${e.meta && e.meta.value ? ' · $' + escapeHtml(e.meta.value) : ''}</div>
+            </div>
+          </div>`).join('') + '</div>' : '<p style="color:var(--hint);font-size:12px">No recent conversion events</p>'}
+      </div>
+    </div>
+  `;
+}
+
 function onboardingHTML() {
   const o = state.onboarding;
   if (!o) return '<div class="card"><div class="loader">Loading checklist...</div></div>';
@@ -743,8 +811,8 @@ function clientReportHTML() {
         <div class="metric"><div class="metric-lbl">Health score</div><div class="metric-val">${r.health.score}/100</div><div class="metric-sub">${escapeHtml(r.health.label)}</div></div>
         <div class="metric"><div class="metric-lbl">Visitors</div><div class="metric-val">${fmt(r.stats.visitors)}</div></div>
         <div class="metric"><div class="metric-lbl">Conversions</div><div class="metric-val">${fmt(r.stats.conversions)}</div><div class="metric-sub">${r.stats.conversionRate}% rate</div></div>
+        <div class="metric"><div class="metric-lbl">Add to carts</div><div class="metric-val">${fmt(r.conversions && r.conversions.summary ? r.conversions.summary.addToCarts : 0)}</div></div>
         <div class="metric"><div class="metric-lbl">AI sessions</div><div class="metric-val">${fmt(r.ai.totalAISessions)}</div></div>
-        <div class="metric"><div class="metric-lbl">Open alerts</div><div class="metric-val">${fmt(r.health.alerts.length)}</div></div>
       </div>
     </div>
     <div class="grid-2">
@@ -753,8 +821,9 @@ function clientReportHTML() {
     </div>
     <div class="grid-2">
       <div class="card"><div class="card-hd"><span class="card-title">AI traffic</span></div>${r.ai.platforms && r.ai.platforms.length ? sourcesHTML(Object.fromEntries(r.ai.platforms.map(p => [p.platform, p.sessions]))) : '<p style="color:var(--hint);font-size:12px">No AI traffic yet</p>'}</div>
-      <div class="card"><div class="card-hd"><span class="card-title">Funnel diagnosis</span></div><p style="font-size:13px;color:var(--muted);line-height:1.5">${escapeHtml(r.funnel.diagnosis)}</p></div>
+      <div class="card"><div class="card-hd"><span class="card-title">Conversion mix</span></div>${r.conversions && r.conversions.byType && r.conversions.byType.length ? '<div class="pages-list">' + r.conversions.byType.map(t => `<div class="pg-row"><div class="pg-path">${escapeHtml(t.label)}</div><div><div class="pg-bar-bg"><div class="pg-bar-fill" style="width:${pct(t.count, r.conversions.byType[0].count)}%"></div></div></div><div class="pg-num">${fmt(t.count)}</div></div>`).join('') + '</div>' : '<p style="color:var(--hint);font-size:12px">No conversions yet</p>'}</div>
     </div>
+    <div class="card"><div class="card-hd"><span class="card-title">Funnel diagnosis</span></div><p style="font-size:13px;color:var(--muted);line-height:1.5">${escapeHtml(r.funnel.diagnosis)}</p></div>
   `;
 }
 
@@ -791,6 +860,21 @@ function dashboardHTML() {
         <div class="metric-sub ${s.conversions === 0 ? 'bad' : 'good'}">${s.conversionRate}% rate</div>
       </div>
     </div>
+
+    ${s.conversionBreakdown ? `
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">Conversion breakdown</span>
+        <button class="tb-btn" onclick="showView('conversions')"><i class="ti ti-target-arrow"></i> Details</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+        <div><div class="metric-lbl">Lead forms</div><div style="font-size:20px;font-weight:600">${fmt(s.conversionBreakdown.leadForms)}</div></div>
+        <div><div class="metric-lbl">Add to carts</div><div style="font-size:20px;font-weight:600">${fmt(s.conversionBreakdown.addToCarts)}</div></div>
+        <div><div class="metric-lbl">Purchases</div><div style="font-size:20px;font-weight:600">${fmt(s.conversionBreakdown.purchases)}</div></div>
+        <div><div class="metric-lbl">Revenue</div><div style="font-size:20px;font-weight:600">${s.conversionBreakdown.revenue ? '$' + fmt(s.conversionBreakdown.revenue) : '$0'}</div></div>
+        <div><div class="metric-lbl">Phone/email</div><div style="font-size:20px;font-weight:600">${fmt((s.conversionBreakdown.phoneClicks || 0) + (s.conversionBreakdown.emailClicks || 0))}</div></div>
+      </div>
+    </div>` : ''}
 
     <div class="card">
       <div class="card-hd">
@@ -1121,8 +1205,11 @@ function funnelHTML(f) {
     { label: 'Pageviews', val: f.pageviews, color: '#1a6bff' },
     { label: 'Form started', val: f.formStarts, color: '#f59e0b' },
     { label: 'Form completed', val: f.formCompletes, color: f.formCompletes === 0 ? '#dc2626' : '#16a34a' },
+    { label: 'Add to cart', val: f.addToCarts || 0, color: '#8b5cf6' },
+    { label: 'Checkout started', val: f.checkoutStarts || 0, color: '#6366f1' },
+    { label: 'Purchase', val: f.purchases || 0, color: (f.purchases || 0) === 0 ? '#dc2626' : '#16a34a' },
     { label: 'Converted', val: f.conversions, color: f.conversions === 0 ? '#dc2626' : '#16a34a' }
-  ];
+  ].filter(s => s.val > 0 || ['Sessions', 'Pageviews', 'Form started', 'Form completed', 'Converted'].includes(s.label));
   return '<div class="funnel-steps">' + steps.map((s, i) => {
     const prev = i > 0 ? steps[i-1].val : null;
     const dropPct = (prev != null && prev > 0) ? Math.round((1 - s.val / prev) * 100) : 0;
