@@ -42,14 +42,19 @@ function pctDelta(current, previous) {
 
 function buildKpis(gsc, ga4) {
   const clicksDelta = pctDelta(gsc.current.clicks, gsc.previous.clicks);
-  const sessionsDelta = pctDelta(ga4.current.sessions, ga4.previous.sessions);
-  const conversionsDelta = pctDelta(ga4.current.conversions, ga4.previous.conversions);
-  return [
+  const kpis = [
     { label: 'Google Clicks', value: Math.round(gsc.current.clicks), delta: clicksDelta.label, deltaColor: clicksDelta.color },
-    { label: 'Sessions', value: Math.round(ga4.current.sessions), delta: sessionsDelta.label, deltaColor: sessionsDelta.color },
-    { label: 'Conversions', value: Math.round(ga4.current.conversions), delta: conversionsDelta.label, deltaColor: conversionsDelta.color },
     { label: 'Avg. Position', value: gsc.current.position.toFixed(1), delta: '', deltaColor: '#888' }
   ];
+  if (ga4) {
+    const sessionsDelta = pctDelta(ga4.current.sessions, ga4.previous.sessions);
+    const conversionsDelta = pctDelta(ga4.current.conversions, ga4.previous.conversions);
+    kpis.splice(1, 0,
+      { label: 'Sessions', value: Math.round(ga4.current.sessions), delta: sessionsDelta.label, deltaColor: sessionsDelta.color },
+      { label: 'Conversions', value: Math.round(ga4.current.conversions), delta: conversionsDelta.label, deltaColor: conversionsDelta.color }
+    );
+  }
+  return kpis;
 }
 
 function buildRankingSections(rankResults) {
@@ -99,7 +104,7 @@ async function gatherData(site, agency) {
   const fetchRankings = getRankFetcher(site);
   const [gsc, ga4, rankResults, notes, aiPlatforms] = await Promise.all([
     getGscSummary(site, range),
-    getGa4Summary(site, range),
+    site.ga4PropertyId ? getGa4Summary(site, range) : Promise.resolve(null),
     fetchRankings(site, range),
     getDocNotes(site),
     getLlmVisibility(site)
