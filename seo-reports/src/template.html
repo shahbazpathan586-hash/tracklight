@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  @page { margin: 0; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: #1a1a1a;
+    margin: 0;
+    padding: 0;
+  }
+  .page {
+    width: 816px;
+    min-height: 1056px;
+    padding: 48px 56px;
+    position: relative;
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; margin: 0; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .logo { display: flex; flex-direction: column; }
+  .logo-mark { font-family: Georgia, serif; font-weight: bold; font-size: 22px; letter-spacing: 1px; color: #1a3a2a; }
+  .logo-mark .o { color: #c9a227; }
+  .logo-sub { font-size: 9px; letter-spacing: 2px; color: #6b6b6b; margin-top: 2px; }
+  .client-block { text-align: right; }
+  .client-name { font-family: Georgia, serif; font-weight: bold; font-size: 20px; }
+  .client-url { font-size: 11px; color: #555; margin-top: 2px; }
+  .report-month { font-size: 10px; letter-spacing: 1px; color: #888; margin-top: 4px; text-transform: uppercase; }
+
+  .hr { border: none; border-top: 1px solid #ddd; margin: 24px 0; }
+
+  .tree-row { font-size: 26px; color: #d7dcd5; letter-spacing: 10px; text-align: center; margin: 16px 0 28px; }
+
+  .hero {
+    background: linear-gradient(135deg, #1a3a2a, #0f2a1c);
+    border-radius: 18px;
+    padding: 36px 40px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+  .hero-tag { font-size: 10px; letter-spacing: 2px; color: #c9a227; text-transform: uppercase; }
+  .hero-tag::before { content: "— "; }
+  .hero h2 { font-size: 26px; line-height: 1.35; margin-top: 12px; max-width: 520px; }
+
+  .section { margin-bottom: 30px; }
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .pill { border: 1px solid #1a3a2a; border-radius: 14px; padding: 4px 14px; font-style: italic; font-family: Georgia, serif; font-size: 13px; color: #1a3a2a; }
+  .section-label { font-size: 10px; letter-spacing: 2px; color: #888; text-transform: uppercase; }
+
+  .rank-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+  .rank-card { border: 1px solid #e3e3e3; border-radius: 14px; padding: 18px 20px; width: 47%; }
+  .rank-num { font-family: Georgia, serif; font-size: 30px; color: #c9a227; }
+  .rank-num.green { color: #2f6b46; }
+  .rank-kw { font-size: 14px; font-weight: 600; margin: 6px 0 10px; }
+  .rank-meta { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 1px; color: #888; }
+  .up { color: #2f6b46; font-weight: bold; }
+  .down { color: #b03a2e; font-weight: bold; }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .chip { border: 1px solid #e3e3e3; border-radius: 30px; padding: 10px 18px; font-size: 13px; display: flex; align-items: center; gap: 10px; }
+  .chip .n { color: #c9a227; font-weight: bold; font-family: Georgia, serif; }
+
+  .mover-row { border: 1px solid #e3e3e3; border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .mover-kw { font-size: 13px; font-weight: 600; }
+  .mover-change { font-family: Georgia, serif; font-size: 16px; }
+  .mover-old { text-decoration: line-through; color: #aaa; font-size: 13px; }
+  .mover-delta { color: #2f6b46; font-size: 11px; font-weight: bold; margin-left: 6px; }
+
+  .ai-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+  .ai-card { border: 1px solid #e3e3e3; border-radius: 14px; padding: 16px 18px; width: 47%; }
+  .ai-platform { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+  .ai-status { font-size: 9px; letter-spacing: 1.5px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+  .ai-detail { font-size: 12px; color: #333; line-height: 1.5; }
+  .ai-cited { color: #2f6b46; font-weight: 600; }
+  .ai-not-cited { color: #888; }
+
+  .notes-section { margin-bottom: 30px; }
+  .notes-box { border: 1px solid #e3e3e3; border-radius: 14px; padding: 18px 22px; font-size: 12.5px; line-height: 1.6; }
+  .notes-box h4 { font-family: Georgia, serif; font-size: 13px; margin: 0 0 8px; color: #1a3a2a; }
+  .notes-box ul { margin: 0 0 14px 18px; padding: 0; }
+  .notes-box li { margin-bottom: 4px; }
+
+  .stat-grid { display: flex; gap: 16px; margin-bottom: 30px; }
+  .stat-card { flex: 1; border: 1px solid #e3e3e3; border-radius: 14px; padding: 18px; text-align: center; }
+  .stat-num { font-family: Georgia, serif; font-size: 26px; color: #1a3a2a; }
+  .stat-label { font-size: 9px; letter-spacing: 1.5px; color: #888; text-transform: uppercase; margin-top: 6px; }
+  .stat-delta { font-size: 11px; margin-top: 4px; }
+
+  .footer { position: absolute; bottom: 48px; left: 56px; right: 56px; text-align: center; }
+  .footer-logo { font-family: Georgia, serif; font-weight: bold; font-size: 16px; color: #1a3a2a; }
+  .footer-tag { font-family: Georgia, serif; font-style: italic; font-size: 13px; margin: 8px 0; }
+  .footer-line { font-size: 10px; color: #888; }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1: cover + headline + top rankings -->
+<div class="page">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-mark">{{agencyName}}</div>
+      <div class="logo-sub">GEO · SEO · AI VISIBILITY · DIGITAL AUTHORITY</div>
+    </div>
+    <div class="client-block">
+      <div class="client-name">{{clientName}}</div>
+      <div class="client-url">{{url}}</div>
+      <div class="report-month">{{monthLabel}} PERFORMANCE REPORT</div>
+    </div>
+  </div>
+  <hr class="hr" />
+  <div class="tree-row">▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲</div>
+
+  <div class="hero">
+    <div class="hero-tag">THE GOOD NEWS</div>
+    <h2>{{heroHeadline}}</h2>
+  </div>
+
+  <div class="stat-grid">
+    {{#each kpis}}
+    <div class="stat-card">
+      <div class="stat-num">{{this.value}}</div>
+      <div class="stat-label">{{this.label}}</div>
+      <div class="stat-delta" style="color:{{this.deltaColor}}">{{this.delta}}</div>
+    </div>
+    {{/each}}
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="pill">good on google</span>
+      <span class="section-label">Google Search Rankings</span>
+    </div>
+    <div class="rank-grid">
+      {{#each topRankings}}
+      <div class="rank-card">
+        <div class="rank-num {{this.colorClass}}">#{{this.position}}</div>
+        <div class="rank-kw">{{this.keyword}}</div>
+        <div class="rank-meta">
+          <span class="{{this.changeClass}}">{{this.changeLabel}}</span>
+          <span>GOOGLE</span>
+        </div>
+      </div>
+      {{/each}}
+    </div>
+  </div>
+
+  {{#if newRankings.length}}
+  <div class="section">
+    <div class="section-head">
+      <span class="pill">new goods</span>
+      <span class="section-label">New Rankings This Month</span>
+    </div>
+    <div class="chip-row">
+      {{#each newRankings}}
+      <div class="chip"><span class="n">{{this.position}}</span> {{this.keyword}}</div>
+      {{/each}}
+    </div>
+  </div>
+  {{/if}}
+</div>
+
+<!-- PAGE 2: movers + AI visibility -->
+<div class="page">
+  {{#if movers.length}}
+  <div class="section">
+    <div class="section-head">
+      <span class="pill">good moves</span>
+      <span class="section-label">Best Position Movers</span>
+    </div>
+    {{#each movers}}
+    <div class="mover-row">
+      <span class="mover-kw">↑ {{this.keyword}}</span>
+      <span class="mover-change">
+        <span class="mover-old">#{{this.from}}</span> → <strong>#{{this.to}}</strong>
+        <span class="mover-delta">+{{this.delta}}</span>
+      </span>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  <div class="section">
+    <div class="section-head">
+      <span class="pill">the good word</span>
+      <span class="section-label">AI Search Visibility</span>
+    </div>
+    <div class="ai-grid">
+      {{#each aiPlatforms}}
+      <div class="ai-card">
+        <div class="ai-platform">{{this.icon}} {{this.name}}</div>
+        <div class="ai-status">{{this.statusLabel}}</div>
+        <div class="ai-detail {{this.citedClass}}">{{this.detail}}</div>
+      </div>
+      {{/each}}
+    </div>
+  </div>
+
+  <div class="notes-section">
+    <div class="section-head">
+      <span class="pill">good progress</span>
+      <span class="section-label">What We Did / What's Next</span>
+    </div>
+    <div class="notes-box">
+      <h4>Completed this month</h4>
+      <ul>{{#each notesDone}}<li>{{this}}</li>{{/each}}</ul>
+      <h4>Planned next month</h4>
+      <ul>{{#each notesNext}}<li>{{this}}</li>{{/each}}</ul>
+      {{#if notesPending.length}}
+      <h4>Pending / blocked</h4>
+      <ul>{{#each notesPending}}<li>{{this}}</li>{{/each}}</ul>
+      {{/if}}
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-logo">{{agencyName}}</div>
+    <div class="footer-tag">{{agencyTagline}}</div>
+    <div class="footer-line">{{agencyContactLine}}</div>
+    <div class="footer-line">© {{year}} · {{monthLabel}}</div>
+  </div>
+</div>
+
+</body>
+</html>

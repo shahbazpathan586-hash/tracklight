@@ -1,0 +1,20 @@
+{
+  "name": "seo-reports",
+  "version": "1.0.0",
+  "description": "Automated monthly SEO performance report generator and emailer for agency clients",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "report:one": "node src/index.js --site",
+    "test": "node --check src/index.js && node --check src/generateReport.js && node --check src/sendEmail.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "googleapis": "^144.0.0",
+    "handlebars": "^4.7.8",
+    "nodemailer": "^6.9.16",
+    "puppeteer": "^23.10.4"
+  }
+}
