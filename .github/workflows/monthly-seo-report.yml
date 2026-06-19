@@ -1,0 +1,48 @@
+name: Monthly SEO Report
+
+on:
+  schedule:
+    # 09:00 UTC on the 27th of every month
+    - cron: '0 9 27 * *'
+  workflow_dispatch: {}
+
+jobs:
+  generate-and-send:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: seo-reports
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate and email reports for all sites
+        env:
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          DATAFORSEO_LOGIN: ${{ secrets.DATAFORSEO_LOGIN }}
+          DATAFORSEO_PASSWORD: ${{ secrets.DATAFORSEO_PASSWORD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          REPORT_FROM_NAME: ${{ secrets.REPORT_FROM_NAME }}
+          REPORT_FROM_EMAIL: ${{ secrets.REPORT_FROM_EMAIL }}
+          DEFAULT_REPORT_TO: ${{ secrets.DEFAULT_REPORT_TO }}
+        run: node src/index.js
+
+      - name: Upload generated PDFs as build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-reports-${{ github.run_id }}
+          path: seo-reports/output/*.pdf

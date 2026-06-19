@@ -1,0 +1,34 @@
+[
+  {
+    "id": "italyculinaryvacations",
+    "clientName": "Lisa Minardi",
+    "url": "https://italyculinaryvacations.com/",
+    "reportTo": ["client-contact@example.com", "agency-contact@example.com"],
+
+    "gscSiteUrl": "https://italyculinaryvacations.com/",
+    "ga4PropertyId": "123456789",
+
+    "googleDocId": "PASTE_GOOGLE_DOC_ID_WITH_MONTHLY_NOTES_HERE",
+
+    "keywords": [
+      "cooking lessons italy vacation",
+      "all inclusive cooking vacations italy",
+      "italian cooking vacation",
+      "cooking tours italy",
+      "italy food vacation",
+      "italy tour packages with cooking classes",
+      "culinary vacations packages",
+      "cooking holidays italy"
+    ],
+    "dataforseo": { "locationCode": 2840, "languageCode": "en" },
+
+    "llmCheck": {
+      "brandTerms": ["italyculinaryvacations.com", "Lisa Minardi", "Italy Culinary Vacations"],
+      "prompts": [
+        "What is the best all-inclusive cooking vacation in Italy?",
+        "Recommend a culinary tour company in Italy for food lovers.",
+        "Where can I take cooking lessons during a trip to Italy?"
+      ]
+    }
+  }
+]
