@@ -7,13 +7,30 @@ you manage, and emails it out automatically.
 
 Runs each site through:
 
-1. **Google Search Console** — clicks, impressions, avg. position (this month vs. last)
+1. **Google Search Console** — clicks, impressions, avg. position (this month vs. last), plus per-keyword position (free rank tracking, no paid SERP API required)
 2. **Google Analytics 4** — sessions, users, conversions
-3. **DataForSEO** — live Google SERP position per tracked keyword, diffed against last run to find new rankings and best movers
+3. **DataForSEO** (optional, paid) — live Google SERP position checks, if you want exact rank-tracker-style numbers instead of GSC's per-query averages. Off by default.
 4. **Google Docs** — reads your team's monthly notes doc and splits it into "Completed / Next / Pending" by heading
-5. **ChatGPT + Perplexity APIs** — checks whether the client's brand/domain is mentioned in answers to a few tracked prompts (Google AI Overview has no public API, so it's flagged as a manual check)
+5. **ChatGPT + Perplexity APIs** (optional, paid) — checks whether the client's brand/domain is mentioned in answers to a few tracked prompts. Skipped gracefully if no API key is set. Google AI Overview has no public API, so it's flagged as a manual check either way.
 6. **Puppeteer** — renders the filled template to PDF
 7. **Nodemailer** — emails the PDF to the agency contact(s)
+
+### Rank tracking: free by default
+
+Each site's `rankSource` in `sites.json` controls where keyword positions come
+from:
+
+- `"gsc"` (default, free) — pulls each tracked keyword's average position
+  directly from Search Console's own per-query data. No extra signup, no
+  cost, official Google data. This is what `sites.example.json` uses.
+- `"dataforseo"` — uses live SERP checks via DataForSEO instead, if you
+  later want that level of precision. Requires funding a DataForSEO account
+  (min. $50) and setting `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` in `.env`.
+
+GSC-based tracking only reports positions for keywords the site has actually
+received *some* impressions for in Search Console — if a keyword has zero
+impressions that period, its position shows as untracked until it picks up
+impressions.
 
 ## Setup
 

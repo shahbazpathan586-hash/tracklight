@@ -3,11 +3,20 @@ const path = require('path');
 const Handlebars = require('handlebars');
 const puppeteer = require('puppeteer');
 
-const { getGscSummary } = require('./fetchers/gsc');
+const { getGscSummary, getGscKeywordRankings } = require('./fetchers/gsc');
 const { getGa4Summary } = require('./fetchers/ga4');
 const { getRankings } = require('./fetchers/ranks');
 const { getDocNotes } = require('./fetchers/docNotes');
 const { getLlmVisibility } = require('./fetchers/llmCitations');
+
+/**
+ * Rank source defaults to Search Console's own per-query position data
+ * (free, no API key needed). Set rankSource: "dataforseo" on a site in
+ * sites.json to use live SERP checks instead, once DataForSEO is funded.
+ */
+function getRankFetcher(site) {
+  return site.rankSource === 'dataforseo' ? getRankings : getGscKeywordRankings;
+}
 
 function monthRange(date = new Date()) {
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -87,10 +96,11 @@ function buildHeroHeadline(site, rankingSections) {
 async function gatherData(site, agency) {
   const range = monthRange();
 
+  const fetchRankings = getRankFetcher(site);
   const [gsc, ga4, rankResults, notes, aiPlatforms] = await Promise.all([
     getGscSummary(site, range),
     getGa4Summary(site, range),
-    getRankings(site),
+    fetchRankings(site, range),
     getDocNotes(site),
     getLlmVisibility(site)
   ]);

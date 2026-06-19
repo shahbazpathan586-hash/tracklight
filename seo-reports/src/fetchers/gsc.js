@@ -28,4 +28,44 @@ async function getGscSummary(site, { startDate, endDate, prevStartDate, prevEndD
   return { current, previous };
 }
 
-module.exports = { getGscSummary };
+/**
+ * Free alternative to a paid SERP-checking API: pulls each tracked keyword's
+ * average position directly from Search Console's own per-query data for
+ * the current and previous period, in the same {keyword, position,
+ * previousPosition} shape the report builder expects.
+ */
+async function getGscKeywordRankings(site, { startDate, endDate, prevStartDate, prevEndDate }) {
+  const auth = getAuth(['https://www.googleapis.com/auth/webmasters.readonly']);
+  const searchconsole = google.searchconsole({ version: 'v1', auth });
+
+  const queryPositions = async (start, end) => {
+    const res = await searchconsole.searchanalytics.query({
+      siteUrl: site.gscSiteUrl,
+      requestBody: {
+        startDate: start,
+        endDate: end,
+        dimensions: ['query'],
+        rowLimit: 5000
+      }
+    });
+    const map = new Map();
+    for (const row of res.data.rows || []) {
+      map.set(row.keys[0].toLowerCase(), Math.round(row.position));
+    }
+    return map;
+  };
+
+  const [currentMap, previousMap] = await Promise.all([
+    queryPositions(startDate, endDate),
+    queryPositions(prevStartDate, prevEndDate)
+  ]);
+
+  return site.keywords.map(keyword => {
+    const key = keyword.toLowerCase();
+    const position = currentMap.has(key) ? currentMap.get(key) : null;
+    const previousPosition = previousMap.has(key) ? previousMap.get(key) : null;
+    return { keyword, position, previousPosition };
+  });
+}
+
+module.exports = { getGscSummary, getGscKeywordRankings };

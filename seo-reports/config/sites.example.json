@@ -20,6 +20,8 @@
       "culinary vacations packages",
       "cooking holidays italy"
     ],
+    "rankSource": "gsc",
+    "_comment_rankSource": "gsc = free, uses Search Console's own per-query position data. Set to 'dataforseo' instead once that account is funded.",
     "dataforseo": { "locationCode": 2840, "languageCode": "en" },
 
     "llmCheck": {
