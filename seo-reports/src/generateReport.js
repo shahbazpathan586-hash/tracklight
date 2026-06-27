@@ -6,16 +6,19 @@ const puppeteer = require('puppeteer');
 const { getGscSummary, getGscKeywordRankings } = require('./fetchers/gsc');
 const { getGa4Summary } = require('./fetchers/ga4');
 const { getRankings } = require('./fetchers/ranks');
+const { getSemrushRankings } = require('./fetchers/semrush');
 const { getDocNotes } = require('./fetchers/docNotes');
 const { getLlmVisibility } = require('./fetchers/llmCitations');
 
 /**
  * Rank source defaults to Search Console's own per-query position data
- * (free, no API key needed). Set rankSource: "dataforseo" on a site in
- * sites.json to use live SERP checks instead, once DataForSEO is funded.
+ * (free, no API key needed). Set rankSource: "dataforseo" or "semrush" on
+ * a site in sites.json to use a live SERP-checking API instead.
  */
 function getRankFetcher(site) {
-  return site.rankSource === 'dataforseo' ? getRankings : getGscKeywordRankings;
+  if (site.rankSource === 'dataforseo') return getRankings;
+  if (site.rankSource === 'semrush') return getSemrushRankings;
+  return getGscKeywordRankings;
 }
 
 function monthRange(date = new Date()) {

@@ -9,7 +9,7 @@ Runs each site through:
 
 1. **Google Search Console** — clicks, impressions, avg. position (this month vs. last), plus per-keyword position (free rank tracking, no paid SERP API required)
 2. **Google Analytics 4** — sessions, users, conversions
-3. **DataForSEO** (optional, paid) — live Google SERP position checks, if you want exact rank-tracker-style numbers instead of GSC's per-query averages. Off by default.
+3. **SEMrush or DataForSEO** (optional, paid) — live Google SERP position checks, if you want exact rank-tracker-style numbers instead of GSC's per-query averages. Off by default.
 4. **Google Docs** — reads your team's monthly notes doc and splits it into "Completed / Next / Pending" by heading
 5. **ChatGPT + Perplexity APIs** (optional, paid) — checks whether the client's brand/domain is mentioned in answers to a few tracked prompts. Skipped gracefully if no API key is set. Google AI Overview has no public API, so it's flagged as a manual check either way.
 6. **Puppeteer** — renders the filled template to PDF
@@ -23,6 +23,10 @@ from:
 - `"gsc"` (default, free) — pulls each tracked keyword's average position
   directly from Search Console's own per-query data. No extra signup, no
   cost, official Google data. This is what `sites.example.json` uses.
+- `"semrush"` — uses live organic SERP lookups via SEMrush's Analytics API
+  (`phrase_organic` report) instead, if your plan includes API access.
+  Requires `SEMRUSH_API_KEY` in `.env`. Costs API units per keyword check
+  per your existing SEMrush plan, no separate project/campaign setup needed.
 - `"dataforseo"` — uses live SERP checks via DataForSEO instead, if you
   later want that level of precision. Requires funding a DataForSEO account
   (min. $50) and setting `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` in `.env`.
