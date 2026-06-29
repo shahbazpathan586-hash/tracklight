@@ -88,7 +88,21 @@ function buildRankingSections(rankResults) {
     .sort((a, b) => b.delta - a.delta)
     .slice(0, 5);
 
-  return { topRankings, newRankings, movers };
+  const supportingRows = ranked
+    .map(r => {
+      const diff = r.previousPosition != null ? r.previousPosition - r.position : null;
+      return {
+        keyword: r.keyword,
+        previousPosition: r.previousPosition,
+        position: r.position,
+        diff,
+        isNew: r.previousPosition == null,
+        highlighted: diff != null && diff > 0
+      };
+    })
+    .sort((a, b) => (b.diff ?? 0) - (a.diff ?? 0));
+
+  return { topRankings, newRankings, movers, supportingRows };
 }
 
 function buildHeroHeadline(site, rankingSections) {

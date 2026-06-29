@@ -93,6 +93,19 @@
   .stat-label { font-size: 9px; letter-spacing: 1.5px; color: #888; text-transform: uppercase; margin-top: 6px; }
   .stat-delta { font-size: 11px; margin-top: 4px; }
 
+  .shot-label { font-size: 10px; letter-spacing: 1.5px; color: #888; text-transform: uppercase; margin: 4px 0 10px; display: flex; align-items: center; gap: 6px; }
+  .shot-label::before { content: ""; width: 4px; height: 14px; background: #1a3a2a; display: inline-block; }
+  .shot-table { width: 100%; border: 1px solid #e3e3e3; border-radius: 10px; border-collapse: collapse; font-size: 11px; overflow: hidden; margin-bottom: 24px; }
+  .shot-table thead tr { background: #f4f5f3; }
+  .shot-table th { text-align: left; font-size: 9px; letter-spacing: 1px; color: #888; text-transform: uppercase; padding: 10px 14px; font-weight: 600; }
+  .shot-table td { padding: 10px 14px; border-top: 1px solid #eee; }
+  .shot-table .kw-cell { font-weight: 600; color: #1a3a2a; }
+  .shot-table .pos-old { color: #aaa; text-decoration: line-through; }
+  .shot-table .pos-arrow { color: #b03a2e; font-weight: bold; margin: 0 6px; }
+  .shot-table .pos-new { font-weight: bold; }
+  .shot-table .diff-up { color: #2f6b46; font-weight: bold; }
+  .shot-table .diff-new { color: #c9a227; font-weight: bold; }
+
   .footer { position: absolute; bottom: 48px; left: 56px; right: 56px; text-align: center; }
   .footer-logo { font-family: Georgia, serif; font-weight: bold; font-size: 16px; color: #1a3a2a; }
   .footer-tag { font-family: Georgia, serif; font-style: italic; font-size: 13px; margin: 8px 0; }
@@ -165,6 +178,35 @@
   </div>
   {{/if}}
 </div>
+
+{{#if supportingRows.length}}
+<div class="page">
+  <div class="section">
+    <div class="shot-label">Supporting Data — Google Search Console</div>
+    <table class="shot-table">
+      <thead>
+        <tr><th>Keyword</th><th>Previous</th><th>Current</th><th>Diff</th></tr>
+      </thead>
+      <tbody>
+        {{#each supportingRows}}
+        <tr>
+          <td class="kw-cell">{{this.keyword}}</td>
+          <td>{{#if this.previousPosition}}{{this.previousPosition}}{{else}}—{{/if}}</td>
+          <td>
+            {{#if this.previousPosition}}<span class="pos-old">{{this.previousPosition}}</span><span class="pos-arrow">→</span>{{/if}}
+            <span class="pos-new">{{this.position}}</span>
+          </td>
+          <td>
+            {{#if this.isNew}}<span class="diff-new">NEW</span>{{/if}}
+            {{#if this.highlighted}}<span class="diff-up">▲ {{this.diff}}</span>{{/if}}
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{/if}}
 
 <!-- PAGE 2: movers + AI visibility -->
 <div class="page">

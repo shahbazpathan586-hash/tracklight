@@ -32,6 +32,13 @@ const data = {
     { keyword: 'culinary vacations packages', from: 31, to: 5, delta: 26 },
     { keyword: 'cooking holidays italy', from: 26, to: 15, delta: 11 }
   ],
+  supportingRows: [
+    { keyword: 'culinary vacations packages', previousPosition: 31, position: 5, diff: 26, isNew: false, highlighted: true },
+    { keyword: 'cooking holidays italy', previousPosition: 26, position: 15, diff: 11, isNew: false, highlighted: true },
+    { keyword: 'cooking tours italy', previousPosition: null, position: 4, diff: null, isNew: true, highlighted: false },
+    { keyword: 'italian cooking vacation', previousPosition: 4, position: 2, diff: 2, isNew: false, highlighted: true },
+    { keyword: 'cooking lessons italy vacation', previousPosition: 3, position: 1, diff: 2, isNew: false, highlighted: true }
+  ],
   aiPlatforms: [
     { name: 'ChatGPT', icon: '💬', statusLabel: 'BUILDING VISIBILITY', citedClass: 'ai-not-cited', detail: 'Actively building the citation signals needed to appear here.' },
     { name: 'Perplexity', icon: '🔍', statusLabel: 'BUILDING VISIBILITY', citedClass: 'ai-not-cited', detail: 'Actively building the citation signals needed to appear here.' },
