@@ -38,7 +38,7 @@ async function getGscKeywordRankings(site, { startDate, endDate, prevStartDate, 
   const auth = getAuth(['https://www.googleapis.com/auth/webmasters.readonly']);
   const searchconsole = google.searchconsole({ version: 'v1', auth });
 
-  const queryPositions = async (start, end) => {
+  const queryMetrics = async (start, end) => {
     const res = await searchconsole.searchanalytics.query({
       siteUrl: site.gscSiteUrl,
       requestBody: {
@@ -50,21 +50,36 @@ async function getGscKeywordRankings(site, { startDate, endDate, prevStartDate, 
     });
     const map = new Map();
     for (const row of res.data.rows || []) {
-      map.set(row.keys[0].toLowerCase(), Math.round(row.position));
+      map.set(row.keys[0].toLowerCase(), {
+        position: Math.round(row.position),
+        clicks: row.clicks,
+        impressions: row.impressions,
+        ctr: row.ctr
+      });
     }
     return map;
   };
 
   const [currentMap, previousMap] = await Promise.all([
-    queryPositions(startDate, endDate),
-    queryPositions(prevStartDate, prevEndDate)
+    queryMetrics(startDate, endDate),
+    queryMetrics(prevStartDate, prevEndDate)
   ]);
 
   return site.keywords.map(keyword => {
     const key = keyword.toLowerCase();
-    const position = currentMap.has(key) ? currentMap.get(key) : null;
-    const previousPosition = previousMap.has(key) ? previousMap.get(key) : null;
-    return { keyword, position, previousPosition };
+    const cur = currentMap.get(key) || null;
+    const prev = previousMap.get(key) || null;
+    return {
+      keyword,
+      position: cur ? cur.position : null,
+      previousPosition: prev ? prev.position : null,
+      clicks: cur ? cur.clicks : 0,
+      previousClicks: prev ? prev.clicks : 0,
+      impressions: cur ? cur.impressions : 0,
+      previousImpressions: prev ? prev.impressions : 0,
+      ctr: cur ? cur.ctr : 0,
+      previousCtr: prev ? prev.ctr : 0
+    };
   });
 }
 

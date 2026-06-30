@@ -106,6 +106,45 @@
   .shot-table .diff-up { color: #2f6b46; font-weight: bold; }
   .shot-table .diff-new { color: #c9a227; font-weight: bold; }
 
+  /* ── Dashboard-styled panels (GSC / GA4 look, generated from API data) ── */
+  .dash { border: 1px solid #dcdfe3; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 18px rgba(0,0,0,0.06); margin-bottom: 26px; background: #fff; }
+  .dash-bar { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; background: #f1f3f4; border-bottom: 1px solid #e2e5e8; }
+  .dash-url { display: flex; align-items: center; gap: 8px; }
+  .dash-dots { display: flex; gap: 5px; }
+  .dash-dots span { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .dash-urlpill { background: #fff; border: 1px solid #dcdfe3; border-radius: 20px; padding: 4px 14px; font-size: 10px; color: #5f6368; max-width: 320px; }
+  .dash-export { font-size: 10px; color: #1a73e8; font-weight: 600; }
+  .dash-body { display: flex; }
+  .dash-side { width: 132px; background: #fafafa; border-right: 1px solid #eee; padding: 12px 0; flex-shrink: 0; }
+  .dash-side .grp { font-size: 8px; letter-spacing: 1px; color: #9aa0a6; text-transform: uppercase; padding: 8px 14px 4px; }
+  .dash-side .item { font-size: 10.5px; color: #3c4043; padding: 6px 14px; display: flex; align-items: center; gap: 7px; }
+  .dash-side .item.active { background: #e8f0fe; color: #1a73e8; font-weight: 600; border-radius: 0 12px 12px 0; margin-right: 10px; }
+  .dash-side .dot { width: 6px; height: 6px; border-radius: 50%; background: #bdc1c6; display: inline-block; }
+  .dash-main { flex: 1; padding: 14px 16px; min-width: 0; }
+  .dash-h { font-size: 14px; color: #202124; font-weight: 600; margin-bottom: 10px; }
+  .dash-chips { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .dash-chip { font-size: 9px; border: 1px solid #dadce0; border-radius: 16px; padding: 3px 10px; color: #5f6368; }
+  .dash-chip.on { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+  .gtable { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .gtable th { text-align: right; color: #5f6368; font-weight: 500; font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px; padding: 7px 8px; border-bottom: 2px solid #e8eaed; }
+  .gtable th.l, .gtable td.l { text-align: left; }
+  .gtable td { text-align: right; padding: 8px; border-bottom: 1px solid #f1f3f4; color: #3c4043; position: relative; white-space: nowrap; }
+  .gtable td.kw { color: #1a73e8; font-weight: 500; }
+  .gtable tr.hl td { background: #fff8f0; }
+  .gtable tr.hl td.kw { font-weight: 700; }
+  .arrow-cell { position: relative; }
+  .red-arrow { color: #e8453c; font-weight: 900; font-size: 13px; }
+  .d-up { color: #188038; font-weight: 600; }
+  .d-down { color: #d93025; font-weight: 600; }
+  .d-zero { color: #9aa0a6; }
+  .d-new { color: #c9a227; font-weight: 700; }
+
+  .ga-grid { display: flex; gap: 14px; flex-wrap: wrap; }
+  .ga-card { flex: 1; min-width: 0; background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 14px 16px; }
+  .ga-num { font-family: Georgia, serif; font-size: 24px; color: #202124; }
+  .ga-label { font-size: 9px; letter-spacing: 1px; color: #5f6368; text-transform: uppercase; margin-top: 4px; }
+  .ga-delta { font-size: 10px; margin-top: 4px; }
+
   .footer { position: absolute; bottom: 48px; left: 56px; right: 56px; text-align: center; }
   .footer-logo { font-family: Georgia, serif; font-weight: bold; font-size: 16px; color: #1a3a2a; }
   .footer-tag { font-family: Georgia, serif; font-style: italic; font-size: 13px; margin: 8px 0; }
@@ -179,32 +218,102 @@
   {{/if}}
 </div>
 
-{{#if supportingRows.length}}
+{{#if gscPanel}}
 <div class="page">
-  <div class="section">
-    <div class="shot-label">Supporting Data — Google Search Console</div>
-    <table class="shot-table">
-      <thead>
-        <tr><th>Keyword</th><th>Previous</th><th>Current</th><th>Diff</th></tr>
-      </thead>
-      <tbody>
-        {{#each supportingRows}}
-        <tr>
-          <td class="kw-cell">{{this.keyword}}</td>
-          <td>{{#if this.previousPosition}}{{this.previousPosition}}{{else}}—{{/if}}</td>
-          <td>
-            {{#if this.previousPosition}}<span class="pos-old">{{this.previousPosition}}</span><span class="pos-arrow">→</span>{{/if}}
-            <span class="pos-new">{{this.position}}</span>
-          </td>
-          <td>
-            {{#if this.isNew}}<span class="diff-new">NEW</span>{{/if}}
-            {{#if this.highlighted}}<span class="diff-up">▲ {{this.diff}}</span>{{/if}}
-          </td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
+  <div class="shot-label">Supporting Screenshots — Google Search Console</div>
+  <div class="dash">
+    <div class="dash-bar">
+      <div class="dash-url">
+        <span class="dash-dots"><span style="background:#ed6a5e"></span><span style="background:#f4bf4f"></span><span style="background:#61c554"></span></span>
+        <span class="dash-urlpill">{{gscPanel.host}}</span>
+      </div>
+      <span class="dash-export">⭳ EXPORT</span>
+    </div>
+    <div class="dash-body">
+      <div class="dash-side">
+        <div class="item"><span class="dot"></span> Overview</div>
+        <div class="item"><span class="dot"></span> Insights</div>
+        <div class="item active"><span class="dot" style="background:#1a73e8"></span> Performance</div>
+        <div class="item"><span class="dot"></span> URL inspection</div>
+        <div class="grp">Indexing</div>
+        <div class="item"><span class="dot"></span> Pages</div>
+        <div class="item"><span class="dot"></span> Sitemaps</div>
+        <div class="grp">Experience</div>
+        <div class="item"><span class="dot"></span> Core Web Vitals</div>
+      </div>
+      <div class="dash-main">
+        <div class="dash-h">Performance</div>
+        <div class="dash-chips">
+          <span class="dash-chip">24 hours</span>
+          <span class="dash-chip">7 days</span>
+          <span class="dash-chip">28 days</span>
+          <span class="dash-chip">3 months</span>
+          <span class="dash-chip on">Compare</span>
+        </div>
+        <table class="gtable">
+          <thead>
+            <tr>
+              <th class="l">Query</th>
+              <th>Clicks</th><th>Diff</th>
+              <th>Impressions</th><th>Diff</th>
+              <th>CTR</th><th>Position</th><th>Diff</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each gscPanel.rows}}
+            <tr class="{{#if this.highlighted}}hl{{/if}}">
+              <td class="l kw arrow-cell">{{#if this.highlighted}}<span class="red-arrow">➜ </span>{{/if}}{{this.keyword}}</td>
+              <td>{{this.clicks}}</td>
+              <td class="{{this.clicksDiff.cls}}">{{this.clicksDiff.label}}</td>
+              <td>{{this.impressions}}</td>
+              <td class="{{this.impressionsDiff.cls}}">{{this.impressionsDiff.label}}</td>
+              <td>{{this.ctr}}</td>
+              <td>{{this.position}}</td>
+              <td class="{{this.positionDiff.cls}}">{{this.positionDiff.label}}</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
+
+  {{#if ga4Panel}}
+  <div class="shot-label">Supporting Screenshots — Google Analytics 4</div>
+  <div class="dash">
+    <div class="dash-bar">
+      <div class="dash-url">
+        <span class="dash-dots"><span style="background:#ed6a5e"></span><span style="background:#f4bf4f"></span><span style="background:#61c554"></span></span>
+        <span class="dash-urlpill">analytics.google.com — {{gscPanel.host}}</span>
+      </div>
+      <span class="dash-export">⭳ EXPORT</span>
+    </div>
+    <div class="dash-body">
+      <div class="dash-side">
+        <div class="item active"><span class="dot" style="background:#e8710a"></span> Reports</div>
+        <div class="item"><span class="dot"></span> Explore</div>
+        <div class="item"><span class="dot"></span> Advertising</div>
+        <div class="grp">Life cycle</div>
+        <div class="item"><span class="dot"></span> Acquisition</div>
+        <div class="item"><span class="dot"></span> Engagement</div>
+        <div class="item"><span class="dot"></span> Monetization</div>
+      </div>
+      <div class="dash-main">
+        <div class="dash-h">Reports snapshot</div>
+        <div class="dash-chips"><span class="dash-chip on">This month vs. previous</span></div>
+        <div class="ga-grid">
+          {{#each ga4Panel.metrics}}
+          <div class="ga-card">
+            <div class="ga-num">{{this.value}}</div>
+            <div class="ga-label">{{this.label}}</div>
+            <div class="ga-delta" style="color:{{this.diff.color}}">{{this.diff.label}}</div>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/if}}
 </div>
 {{/if}}
 

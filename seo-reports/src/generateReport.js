@@ -105,6 +105,76 @@ function buildRankingSections(rankResults) {
   return { topRankings, newRankings, movers, supportingRows };
 }
 
+function fmtPct(v) {
+  return `${(v * 100).toFixed(1)}%`;
+}
+
+function diffCell(current, previous, { invert = false } = {}) {
+  const change = current - previous;
+  if (!change) return { label: '0', cls: 'd-zero' };
+  // invert=true means "lower is better" (e.g. position)
+  const good = invert ? change < 0 : change > 0;
+  const arrow = change > 0 ? '▲' : '▼';
+  return { label: `${arrow} ${Math.abs(Math.round(change * 100) / 100)}`, cls: good ? 'd-up' : 'd-down' };
+}
+
+/**
+ * Builds a panel that mirrors the Google Search Console "Performance"
+ * table (with Compare mode columns + a faux browser/sidebar chrome), from
+ * the same per-keyword API metrics — so the report shows a dashboard-style
+ * graphic generated from real data instead of a manual screenshot.
+ * Returns null for non-GSC rank sources (no per-keyword clicks/impressions).
+ */
+function buildGscPanel(rankResults, site) {
+  const hasMetrics = rankResults.some(r => r.clicks !== undefined);
+  if (!hasMetrics) return null;
+
+  const rows = rankResults.map(r => {
+    const posDiff = r.previousPosition != null && r.position != null
+      ? r.previousPosition - r.position : null;
+    return {
+      keyword: r.keyword,
+      clicks: Math.round(r.clicks || 0),
+      clicksDiff: diffCell(r.clicks || 0, r.previousClicks || 0),
+      impressions: Math.round(r.impressions || 0),
+      impressionsDiff: diffCell(r.impressions || 0, r.previousImpressions || 0),
+      ctr: fmtPct(r.ctr || 0),
+      position: r.position != null ? r.position : '—',
+      positionDiff: r.position != null && r.previousPosition != null
+        ? diffCell(r.position, r.previousPosition, { invert: true })
+        : { label: r.position != null ? 'NEW' : '—', cls: 'd-new' },
+      highlighted: posDiff != null && posDiff > 0
+    };
+  });
+
+  let host = site.url;
+  try { host = new URL(site.url).hostname; } catch {}
+
+  return { host, rows };
+}
+
+/**
+ * Builds a GA4-styled metrics panel (sessions / users / conversions /
+ * engagement) for the reporting month vs. the prior month. Returns null
+ * when GA4 isn't connected for the site.
+ */
+function buildGa4Panel(ga4) {
+  if (!ga4) return null;
+  const metric = (label, cur, prev, isPct = false) => ({
+    label,
+    value: isPct ? fmtPct(cur) : Math.round(cur).toLocaleString('en-US'),
+    diff: pctDelta(cur, prev)
+  });
+  return {
+    metrics: [
+      metric('Sessions', ga4.current.sessions, ga4.previous.sessions),
+      metric('Total Users', ga4.current.users, ga4.previous.users),
+      metric('Conversions', ga4.current.conversions, ga4.previous.conversions),
+      metric('Engagement Rate', ga4.current.engagementRate, ga4.previous.engagementRate, true)
+    ]
+  };
+}
+
 function buildHeroHeadline(site, rankingSections) {
   if (rankingSections.movers.length) {
     return `${site.clientName} is ranking higher and showing up where it matters most.`;
@@ -140,6 +210,8 @@ async function gatherData(site, agency) {
     heroHeadline: buildHeroHeadline(site, rankingSections),
     kpis: buildKpis(gsc, ga4),
     ...rankingSections,
+    gscPanel: buildGscPanel(rankResults, site),
+    ga4Panel: buildGa4Panel(ga4),
     aiPlatforms,
     notesDone: notes.done.length ? notes.done : ['No notes added for this period yet.'],
     notesNext: notes.next.length ? notes.next : ['No notes added for this period yet.'],
