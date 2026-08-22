@@ -161,6 +161,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .hm-upload { position: relative; overflow: hidden; }
 .hm-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .hm-preview { position: relative; min-height: 520px; background: linear-gradient(180deg, var(--surface) 0%, var(--surface-alt) 100%); overflow: hidden; }
+.hm-preview.has-shot { min-height: 0; background: transparent; }
 .hm-shot { width: 100%; height: auto; display: block; }
 .hm-wireframe { min-height: 520px; padding: 24px; display: grid; grid-template-rows: 64px 110px 1fr; gap: 18px; }
 .hm-wire-top, .hm-wire-hero, .hm-wire-card { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
@@ -558,6 +559,20 @@ function changeHTML(v) {
   const sign = n > 0 ? '+' : '';
   return `<span style="color:${color};font-variant-numeric:tabular-nums">${sign}${n}%</span>`;
 }
+// Comparison badge for metric cards: shows delta vs the previous equal period.
+// opts.lowerBetter inverts color (e.g. bounce rate). opts.raw shows point delta (pt) not %.
+function cmpBadge(val, opts = {}) {
+  if (val == null || val === undefined) return '';
+  const n = Number(val);
+  if (!Number.isFinite(n)) return '';
+  if (n === 0) return `<span style="color:var(--hint);font-variant-numeric:tabular-nums">→ no change vs prev</span>`;
+  const good = opts.lowerBetter ? n < 0 : n > 0;
+  const color = good ? 'var(--green)' : 'var(--red)';
+  const arrow = n > 0 ? '↑' : '↓';
+  const sign = n > 0 ? '+' : '';
+  const unit = opts.raw ? 'pt' : '%';
+  return `<span style="color:${color};font-variant-numeric:tabular-nums">${arrow} ${sign}${n}${unit} vs prev</span>`;
+}
 function alertIcon(sev) {
   return sev === 'critical' ? 'ti-alert-circle' : sev === 'warning' ? 'ti-alert-triangle' : 'ti-info-circle';
 }
@@ -709,10 +724,46 @@ function aiTrafficHTML() {
       </div>
     </div>
     <div class="card">
+      <div class="card-hd"><span class="card-title">AI platform → page</span><span class="card-sub">Which assistant sends traffic where</span></div>
+      ${aiPlatformPagesHTML(ai.platformPages)}
+    </div>
+    <div class="card">
       <div class="card-hd"><span class="card-title">Recent AI sessions</span></div>
       ${sessionsHTML(ai.recentSessions || [], 15)}
     </div>
   `;
+}
+
+function aiPlatformPagesHTML(rows) {
+  if (!rows || !rows.length) return '<p style="color:var(--hint);font-size:12px;padding:8px 0">No AI traffic mapped to pages yet</p>';
+  // Group by platform
+  const groups = {};
+  rows.forEach(r => {
+    (groups[r.platform] ||= []).push(r);
+  });
+  const platformNames = Object.keys(groups).sort((a, b) =>
+    groups[b].reduce((s, r) => s + r.sessions, 0) - groups[a].reduce((s, r) => s + r.sessions, 0)
+  );
+  return platformNames.map(platform => {
+    const pages = groups[platform].sort((a, b) => b.sessions - a.sessions);
+    const max = pages[0].sessions;
+    const totalSessions = pages.reduce((s, r) => s + r.sessions, 0);
+    return `
+      <div style="margin-bottom:14px">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+          <i class="ti ti-sparkles" style="color:#06b6d4"></i> ${escapeHtml(platform)}
+          <span style="color:var(--hint);font-weight:400">· ${fmt(totalSessions)} sessions</span>
+        </div>
+        <div class="pages-list">
+          ${pages.slice(0, 6).map(p => `
+            <div class="pg-row">
+              <div class="pg-path">${escapeHtml(p.page)}</div>
+              <div><div class="pg-bar-bg"><div class="pg-bar-fill" style="width:${pct(p.sessions, max)}%;background:#06b6d4"></div></div></div>
+              <div class="pg-num">${fmt(p.sessions)}${p.conversions ? ' · ' + fmt(p.conversions) + ' conv' : ''}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function conversionsHTML() {
@@ -805,7 +856,10 @@ function clientReportHTML() {
           <span class="card-title">${escapeHtml(site.name || state.currentSite)} performance report</span>
           <div class="card-sub">Last ${r.periodDays} days · generated from real TrackLight data</div>
         </div>
-        <button class="tb-btn" onclick="window.print()"><i class="ti ti-printer"></i> Print</button>
+        <div style="display:flex;gap:8px">
+          <button class="tb-btn" onclick="downloadClientReport()"><i class="ti ti-download"></i> Download HTML</button>
+          <button class="tb-btn" onclick="window.print()"><i class="ti ti-printer"></i> Print</button>
+        </div>
       </div>
       <div class="metrics">
         <div class="metric"><div class="metric-lbl">Health score</div><div class="metric-val">${r.health.score}/100</div><div class="metric-sub">${escapeHtml(r.health.label)}</div></div>
@@ -827,6 +881,65 @@ function clientReportHTML() {
   `;
 }
 
+function downloadClientReport() {
+  const r = state.report;
+  if (!r) { alert('Report not loaded yet.'); return; }
+  const site = state.sites.find(s => s.id === state.currentSite) || {};
+  const name = site.name || state.currentSite;
+  const gen = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const row = (label, val) => `<tr><td>${escapeHtml(label)}</td><td style="text-align:right;font-weight:600">${escapeHtml(String(val))}</td></tr>`;
+  const topPagesRows = (r.stats.topPages || []).slice(0, 10).map(p => row(p.page || '/', fmt(p.views))).join('');
+  const aiRows = (r.ai.platforms || []).map(p => row(p.platform, fmt(p.sessions) + ' sessions · ' + p.conversionRate + '% conv')).join('') || row('No AI traffic yet', '—');
+  const convRows = (r.conversions && r.conversions.byType || []).map(t => row(t.label, fmt(t.count) + (t.revenue ? ' · $' + fmt(t.revenue) : ''))).join('') || row('No conversions yet', '—');
+  const alertsList = (r.health.alerts || []).slice(0, 6).map(a =>
+    `<li><b>${escapeHtml(a.title)}</b> — ${escapeHtml(a.detail)} <span style="color:#555">${escapeHtml(a.action)}</span></li>`
+  ).join('') || '<li>No urgent alerts. Keep watching the trend.</li>';
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(name)} — Analytics Report</title>
+<style>
+  body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #1a1d26; max-width: 820px; margin: 30px auto; padding: 0 24px; line-height: 1.5; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 26px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #1a6bff; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 20px; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+  .c { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+  .c .l { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #888; font-weight: 600; }
+  .c .v { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 6px 4px; border-bottom: 1px solid #eee; }
+  ul { padding-left: 18px; font-size: 13px; }
+  li { margin-bottom: 6px; }
+  .diag { background: #f5f7fa; border-left: 3px solid #1a6bff; padding: 12px 14px; border-radius: 6px; font-size: 13px; margin-top: 10px; }
+  .foot { margin-top: 30px; padding-top: 12px; border-top: 1px solid #eee; font-size: 11px; color: #999; }
+</style></head><body>
+  <h1>${escapeHtml(name)} — Performance Report</h1>
+  <div class="sub">Last ${r.periodDays} days · generated ${gen} · data from TrackLight Analytics</div>
+  <div class="cards">
+    <div class="c"><div class="l">Health</div><div class="v">${r.health.score}/100</div></div>
+    <div class="c"><div class="l">Visitors</div><div class="v">${fmt(r.stats.visitors)}</div></div>
+    <div class="c"><div class="l">Conversions</div><div class="v">${fmt(r.stats.conversions)}</div></div>
+    <div class="c"><div class="l">AI sessions</div><div class="v">${fmt(r.ai.totalAISessions)}</div></div>
+  </div>
+  <h2>What needs attention</h2>
+  <ul>${alertsList}</ul>
+  <h2>Top pages</h2>
+  <table>${topPagesRows || row('No page data yet', '—')}</table>
+  <h2>AI assistant traffic</h2>
+  <table>${aiRows}</table>
+  <h2>Conversions</h2>
+  <table>${convRows}</table>
+  <h2>Funnel diagnosis</h2>
+  <div class="diag">${escapeHtml(r.funnel.diagnosis)}</div>
+  <div class="foot">This report reflects tracked TrackLight data for the period shown. Figures are measured, not projected.</div>
+</body></html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name}-report-${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function dashboardHTML() {
   const s = state.stats;
   return `
@@ -837,27 +950,27 @@ function dashboardHTML() {
       <div class="metric">
         <div class="metric-lbl">Unique visitors</div>
         <div class="metric-val">${fmt(s.visitors)}</div>
-        <div class="metric-sub">Last ${state.days} days</div>
+        <div class="metric-sub">${s.comparison ? cmpBadge(s.comparison.visitors) : 'Last ' + state.days + ' days'}</div>
       </div>
       <div class="metric">
         <div class="metric-lbl">Pageviews</div>
         <div class="metric-val">${fmt(s.pageviews)}</div>
-        <div class="metric-sub">${s.sessions ? (s.pageviews / s.sessions).toFixed(1) : 0} per session</div>
+        <div class="metric-sub">${s.comparison ? cmpBadge(s.comparison.pageviews) : (s.sessions ? (s.pageviews / s.sessions).toFixed(1) + ' per session' : '0 per session')}</div>
       </div>
       <div class="metric">
         <div class="metric-lbl">Bounce rate</div>
         <div class="metric-val">${s.bounceRate}%</div>
-        <div class="metric-sub ${s.bounceRate > 70 ? 'bad' : s.bounceRate < 40 ? 'good' : ''}">${s.bounceRate > 70 ? 'High' : s.bounceRate < 40 ? 'Excellent' : 'Average'}</div>
+        <div class="metric-sub">${s.comparison ? cmpBadge(s.comparison.bounceRate, { lowerBetter: true, raw: true }) : (s.bounceRate > 70 ? 'High' : s.bounceRate < 40 ? 'Excellent' : 'Average')}</div>
       </div>
       <div class="metric">
         <div class="metric-lbl">Avg duration</div>
         <div class="metric-val">${fmtDur(s.avgDuration)}</div>
-        <div class="metric-sub">Avg scroll: ${s.avgScrollDepth}%</div>
+        <div class="metric-sub">${s.comparison ? cmpBadge(s.comparison.avgDuration) : 'Avg scroll: ' + s.avgScrollDepth + '%'}</div>
       </div>
       <div class="metric">
         <div class="metric-lbl">Conversions</div>
         <div class="metric-val">${fmt(s.conversions)}</div>
-        <div class="metric-sub ${s.conversions === 0 ? 'bad' : 'good'}">${s.conversionRate}% rate</div>
+        <div class="metric-sub ${s.conversions === 0 ? 'bad' : 'good'}">${s.conversionRate}% rate${s.comparison ? ' · ' + cmpBadge(s.comparison.conversions) : ''}</div>
       </div>
     </div>
 
@@ -933,28 +1046,51 @@ function drawMainChart() {
   if (!canvas) return;
   if (mainChart) mainChart.destroy();
   const labels = state.stats.daily.map(d => d.date.slice(5));
-  const data = state.stats.daily.map(d => d.visitors);
+  const visitorData = state.stats.daily.map(d => d.visitors);
+  const pageviewData = state.stats.daily.map(d => (d.pageviews != null ? d.pageviews : d.visitors));
   const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   mainChart = new Chart(canvas, {
     type: 'line',
     data: {
       labels,
-      datasets: [{
-        label: 'Pageviews',
-        data,
-        borderColor: '#1a6bff',
-        backgroundColor: 'rgba(26,107,255,0.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        borderWidth: 2
-      }]
+      datasets: [
+        {
+          label: 'Visitors',
+          data: visitorData,
+          borderColor: '#1a6bff',
+          backgroundColor: isDark ? 'rgba(26,107,255,0.16)' : 'rgba(26,107,255,0.10)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2
+        },
+        {
+          label: 'Pageviews',
+          data: pageviewData,
+          borderColor: '#8b5cf6',
+          backgroundColor: 'transparent',
+          borderDash: [4, 3],
+          fill: false,
+          tension: 0.3,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 1.5
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: { color: isDark ? '#9ca3af' : '#6b7280', font: { size: 11 }, boxWidth: 12, boxHeight: 12, usePointStyle: true }
+        }
+      },
       scales: {
         x: { grid: { display: false }, ticks: { color: isDark ? '#9ca3af' : '#6b7280', font: { size: 10 }, maxRotation: 0, autoSkipPadding: 20 } },
         y: { grid: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }, ticks: { color: isDark ? '#9ca3af' : '#6b7280', font: { size: 10 } }, beginAtZero: true }
@@ -983,8 +1119,8 @@ function realtimeHTML() {
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px">
         <div class="metric"><div class="metric-lbl">Active now (5 min)</div><div class="metric-val">${rt.online}</div></div>
-        <div class="metric"><div class="metric-lbl">Today's visitors</div><div class="metric-val">${fmt(state.stats.todayVisitors)}</div></div>
-        <div class="metric"><div class="metric-lbl">Today's pageviews</div><div class="metric-val">${fmt(state.stats.todayPageviews || 0)}</div><div class="metric-sub">${fmt(rt.perMinute.reduce((a,b)=>a+b,0))} in last 20 min</div></div>
+        <div class="metric"><div class="metric-lbl">Today's visitors</div><div class="metric-val">${fmt(rt.todayVisitors != null ? rt.todayVisitors : state.stats.todayVisitors)}</div></div>
+        <div class="metric"><div class="metric-lbl">Today's pageviews</div><div class="metric-val">${fmt(rt.todayPageviews != null ? rt.todayPageviews : (state.stats.todayPageviews || 0))}</div><div class="metric-sub">${fmt(rt.perMinute.reduce((a,b)=>a+b,0))} in last 20 min</div></div>
       </div>
 
       <div class="card-hd"><span class="card-title">Active pages right now</span></div>
@@ -1068,7 +1204,7 @@ function heatmapViewHTML() {
           <span class="hm-url">${escapeHtml(selected)}</span>
         </div>
         <div class="hm-body">
-          <div class="hm-preview">
+          <div class="hm-preview ${screenshot ? 'has-shot' : ''}">
             ${preview}
             ${spots}
           </div>
@@ -1175,28 +1311,28 @@ function sessionsHTML(list, max) {
     if (s.converted) badges.push('<span class="sess-badge conv">Conv</span>');
     if (s.rageClick) badges.push('<span class="sess-badge rage">Rage</span>');
     const icon = s.converted ? 'ti-check' : s.rageClick ? 'ti-alert-triangle' : 'ti-eye';
+    const src = s.source || '';
+    const isAI = String(src).startsWith('AI:');
+    const srcHTML = src ? `${isAI ? '<i class="ti ti-sparkles" style="color:#06b6d4;vertical-align:-1px"></i> ' : ''}${escapeHtml(src)}` : '';
+    const parts = [
+      escapeHtml(s.city || '—'),
+      fmtDur(s.duration),
+      (s.pageCount || 0) + ' page' + (s.pageCount === 1 ? '' : 's'),
+      'scroll ' + (s.scrollDepth || 0) + '%'
+    ];
+    if (srcHTML) parts.unshift(srcHTML);
     return `<div class="sess-row">
       <div class="sess-icon"><i class="ti ${icon}"></i></div>
       <div style="flex:1;min-width:0">
         <div class="sess-pg">${escapeHtml(page)}</div>
-        <div class="sess-info">${escapeHtml(s.city || '—')} · ${fmtDur(s.duration)} · ${s.pageCount || 0} page${s.pageCount === 1 ? '' : 's'} · scroll ${s.scrollDepth || 0}%</div>
+        <div class="sess-info">${parts.join(' · ')}</div>
       </div>
       ${badges.join(' ')}
     </div>`;
   }).join('') + '</div>';
 }
 
-// ── Funnel view ────────────────────────────────────────────────────────────
-function funnelViewHTML() {
-  return `<div class="card" style="max-width:720px">
-    <div class="card-hd"><span class="card-title">Conversion funnel</span></div>
-    ${funnelHTML(state.stats.funnel)}
-    ${state.stats.funnel.formStarts > 0 && state.stats.funnel.formCompletes === 0
-      ? '<div class="banner amber" style="margin-top:14px"><i class="ti ti-alert-triangle"></i><div>Users started forms but none completed — there may be a form bug or honeypot issue. Check your contact form.</div></div>'
-      : ''}
-  </div>`;
-}
-
+// ── Funnel ─────────────────────────────────────────────────────────────────
 function funnelHTML(f) {
   if (!f) return '';
   const max = Math.max(f.sessions, 1);
@@ -1329,18 +1465,73 @@ function sourcesViewHTML() {
       <div class="card-hd"><span class="card-title">Top countries</span></div>
       ${countriesHTML(state.stats.topCountries)}
     </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Devices</span><span class="card-sub">Desktop / Mobile / Tablet</span></div>
+      ${devicesHTML(state.stats.devices)}
+    </div>
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Cities</span></div>
+      ${citiesHTML(state.stats.recentSessions)}
+    </div>
   </div>`;
 }
+// Cities derived from recent sessions (no backend change needed)
+function citiesHTML(sessions) {
+  sessions = sessions || [];
+  const map = {};
+  sessions.forEach(s => {
+    const c = s.city || 'Unknown';
+    if (c === 'Unknown') return;
+    map[c] = (map[c] || 0) + 1;
+  });
+  const list = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  if (!list.length) return '<p style="color:var(--hint);font-size:12px;padding:8px 0">No city data yet</p>';
+  const max = list[0][1];
+  return '<div class="pages-list">' + list.map(([city, count]) => `
+    <div class="pg-row">
+      <div class="pg-path">${escapeHtml(city)}</div>
+      <div><div class="pg-bar-bg"><div class="pg-bar-fill" style="width:${pct(count, max)}%"></div></div></div>
+      <div class="pg-num">${fmt(count)}</div>
+    </div>`).join('') + '</div>';
+}
 
+function sourceColor(k) {
+  const colors = { Organic:'#1a6bff', Direct:'#8b5cf6', Social:'#f59e0b', Referral:'#22c55e', Email:'#ef4444', Paid:'#6b7280' };
+  // Every AI/LLM source gets a distinct teal so it stands out from search/referral.
+  if (String(k).startsWith('AI:')) return '#06b6d4';
+  return colors[k] || '#6b7280';
+}
 function sourcesHTML(src) {
   src = src || {};
   const total = Object.values(src).reduce((a, b) => a + b, 0);
   if (!total) return '<p style="color:var(--hint);font-size:12px;padding:8px 0">No source data yet</p>';
-  const colors = { Organic:'#1a6bff', Direct:'#8b5cf6', Social:'#f59e0b', Referral:'#22c55e', Email:'#ef4444', Paid:'#6b7280' };
   const sorted = Object.entries(src).sort((a, b) => b[1] - a[1]);
+  const aiTotal = sorted.filter(([k]) => String(k).startsWith('AI:')).reduce((a, [, v]) => a + v, 0);
+  return '<div class="src-list">' + sorted.map(([k, v]) => {
+    const isAI = String(k).startsWith('AI:');
+    return `
+    <div class="src-row">
+      <span class="src-lbl">${isAI ? '<i class="ti ti-sparkles" style="font-size:12px;color:#06b6d4;margin-right:3px;vertical-align:-1px"></i>' : ''}${escapeHtml(k)}</span>
+      <div class="src-track"><div class="src-fill" style="width:${pct(v, total)}%;background:${sourceColor(k)}"></div></div>
+      <span class="src-pct">${pct(v, total)}%</span>
+    </div>`;
+  }).join('') + '</div>' +
+  (aiTotal ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11.5px;color:var(--muted)"><i class="ti ti-sparkles" style="color:#06b6d4"></i> <b>${pct(aiTotal, total)}%</b> of traffic came from AI assistants (${fmt(aiTotal)} sessions)</div>` : '');
+}
+// Device breakdown bar list (Desktop / Mobile / Tablet / Bot)
+function devicesHTML(devices) {
+  devices = devices || {};
+  const total = Object.values(devices).reduce((a, b) => a + b, 0);
+  if (!total) return '<p style="color:var(--hint);font-size:12px;padding:8px 0">No device data yet</p>';
+  const icons = { Desktop:'ti-device-desktop', Mobile:'ti-device-mobile', Tablet:'ti-device-tablet', Bot:'ti-robot' };
+  const colors = { Desktop:'#1a6bff', Mobile:'#16a34a', Tablet:'#d97706', Bot:'#6b7280' };
+  const order = ['Desktop', 'Mobile', 'Tablet', 'Bot'];
+  const sorted = Object.entries(devices).sort((a, b) => (order.indexOf(a[0]) - order.indexOf(b[0])));
   return '<div class="src-list">' + sorted.map(([k, v]) => `
     <div class="src-row">
-      <span class="src-lbl">${escapeHtml(k)}</span>
+      <span class="src-lbl"><i class="ti ${icons[k] || 'ti-point'}" style="font-size:13px;margin-right:4px;vertical-align:-2px;color:${colors[k] || '#6b7280'}"></i>${escapeHtml(k)}</span>
       <div class="src-track"><div class="src-fill" style="width:${pct(v, total)}%;background:${colors[k] || '#6b7280'}"></div></div>
       <span class="src-pct">${pct(v, total)}%</span>
     </div>`).join('') + '</div>';
