@@ -241,6 +241,15 @@ app.post('/api/seed-demo', async (req, res) => {
     const now = Date.now();
     const pages = ['/', '/about', '/contact', '/pricing', '/blog/getting-started', '/blog/case-study', '/features', '/signup'];
     const cities = ['Seattle', 'New York', 'London', 'Karachi', 'Toronto', 'Berlin', 'Sydney'];
+    // User-agent mix so the device breakdown card shows real Desktop/Mobile/Tablet split
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17 Safari/605.1.15',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+      'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36',
+      'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17 Mobile/15E148'
+    ];
     const refs = [
       '', '', '', '',
       'https://google.com/search', 'https://google.com/search', 'https://google.com/',
@@ -265,6 +274,11 @@ app.post('/api/seed-demo', async (req, res) => {
         const page = pages[Math.floor(Math.random() * pages.length)];
         const ref = refs[Math.floor(Math.random() * refs.length)];
         const city = cities[Math.floor(Math.random() * cities.length)];
+        // Weight: ~55% desktop, ~35% mobile, ~10% tablet
+        const uaRoll = Math.random();
+        const userAgent = uaRoll < 0.55 ? userAgents[Math.floor(Math.random() * 3)]
+          : uaRoll < 0.90 ? userAgents[3 + Math.floor(Math.random() * 2)]
+          : userAgents[5];
         const pageCount = 1 + Math.floor(Math.random() * 5);
         const duration = 10 + Math.floor(Math.random() * 400);
         const scrollDepth = 20 + Math.floor(Math.random() * 80);
@@ -278,7 +292,7 @@ app.post('/api/seed-demo', async (req, res) => {
         await db.trackEvent({
           siteId: SITE, type: 'pageview',
           url: 'https://example.com' + page,
-          referrer: ref, sessionId, visitorId, city, country: 'Unknown',
+          referrer: ref, sessionId, visitorId, city, country: 'Unknown', userAgent,
           duration, scrollDepth
         }, { ts, batch: true });
 
