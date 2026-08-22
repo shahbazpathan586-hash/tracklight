@@ -500,17 +500,23 @@ async function getStats(siteId, days) {
   ).size;
   const todayPageviews = pageviews.filter(e => e.ts.startsWith(todayKey)).length;
 
-  // Daily breakdown
-  const dailyMap = {};
+  // Daily breakdown — count both unique visitors and pageviews per day
+  const dailyPvMap = {};
+  const dailyVisitorSets = {};
   pageviews.forEach(e => {
     const day = e.ts.split('T')[0];
-    dailyMap[day] = (dailyMap[day] || 0) + 1;
+    dailyPvMap[day] = (dailyPvMap[day] || 0) + 1;
+    (dailyVisitorSets[day] ||= new Set()).add(e.visitorId);
   });
   const daily = [];
   for (let i = (days || 30) - 1; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
     const key = d.toISOString().split('T')[0];
-    daily.push({ date: key, visitors: dailyMap[key] || 0 });
+    daily.push({
+      date: key,
+      visitors: dailyVisitorSets[key] ? dailyVisitorSets[key].size : 0,
+      pageviews: dailyPvMap[key] || 0
+    });
   }
 
   // Top pages (normalize path)
@@ -546,6 +552,51 @@ async function getStats(siteId, days) {
     .sort((a, b) => b[1] - a[1]).slice(0, 8)
     .map(([country, count]) => ({ country, count }));
 
+  // Device breakdown (data already on sessions via userAgent)
+  const deviceMap = {};
+  sessions.forEach(s => {
+    const device = classifyDevice(s.userAgent);
+    deviceMap[device] = (deviceMap[device] || 0) + 1;
+  });
+
+  // Previous equal-length period, for week-over-week / period-over-period deltas
+  const spanMs = (days || 30) * 86400000;
+  const prevStartMs = sinceMs - spanMs;
+  const prevEvents = db.data.events.filter(e => {
+    const t = new Date(e.ts).getTime();
+    return e.siteId === siteId && t >= prevStartMs && t < sinceMs;
+  });
+  const prevSessions = db.data.sessions.filter(s => {
+    const t = new Date(s.startedAt || s.lastSeen).getTime();
+    return s.siteId === siteId && t >= prevStartMs && t < sinceMs;
+  });
+  const prevVisitors = new Set(prevEvents.map(e => e.visitorId).filter(Boolean)).size;
+  const prevPageviews = prevEvents.filter(e => e.type === 'pageview').length;
+  const prevConversions = prevSessions.filter(s => s.converted).length;
+  const prevBounced = prevSessions.filter(s => (s.pageCount || 0) <= 1).length;
+  const prevBounceRate = prevSessions.length ? Math.round((prevBounced / prevSessions.length) * 100) : 0;
+  const prevAvgDuration = prevSessions.length
+    ? Math.round(prevSessions.reduce((a, s) => a + (s.duration || 0), 0) / prevSessions.length)
+    : 0;
+  const comparison = {
+    visitors: changePct(uniqueVisitors, prevVisitors),
+    pageviews: changePct(pageviews.length, prevPageviews),
+    conversions: changePct(conversions, prevConversions),
+    // For bounce rate, a drop is good — keep the raw delta so the UI can color it.
+    bounceRate: bounceRate - prevBounceRate,
+    avgDuration: changePct(
+      sessions.length ? Math.round(sessions.reduce((a, s) => a + (s.duration || 0), 0) / sessions.length) : 0,
+      prevAvgDuration
+    ),
+    previous: {
+      visitors: prevVisitors,
+      pageviews: prevPageviews,
+      conversions: prevConversions,
+      bounceRate: prevBounceRate,
+      avgDuration: prevAvgDuration
+    }
+  };
+
   return {
     visitors: uniqueVisitors,
     sessions: sessions.length,
@@ -565,6 +616,8 @@ async function getStats(siteId, days) {
     daily,
     topPages,
     sources: srcMap,
+    devices: deviceMap,
+    comparison,
     funnel: {
       sessions: sessions.length,
       pageviews: pageviews.length,
@@ -580,7 +633,8 @@ async function getStats(siteId, days) {
     recentSessions: sessions
       .slice()
       .sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen))
-      .slice(0, 20)
+      .slice(0, 30)
+      .map(s => ({ ...s, source: classifySource(s.referrer), device: classifyDevice(s.userAgent) }))
   };
 }
 
@@ -623,7 +677,13 @@ async function getRealtime(siteId) {
     .sort((a, b) => b[1] - a[1]).slice(0, 5)
     .map(([page, views]) => ({ page, views }));
 
-  return { online, perMinute: buckets, activePages };
+  // Today's totals — computed here too so the 6-second realtime poll keeps them fresh
+  const todayKey = new Date().toISOString().split('T')[0];
+  const todayEvents = db.data.events.filter(e => e.siteId === siteId && e.ts.startsWith(todayKey));
+  const todayVisitors = new Set(todayEvents.map(e => e.visitorId).filter(Boolean)).size;
+  const todayPageviews = todayEvents.filter(e => e.type === 'pageview').length;
+
+  return { online, perMinute: buckets, activePages, todayVisitors, todayPageviews };
 }
 
 // ── Heatmap ─────────────────────────────────────────────────────────────────
@@ -878,6 +938,8 @@ async function getAITraffic(siteId, days = 30) {
   const byPlatform = {};
   const landingPages = {};
   const dailyMap = {};
+  // Cross-tab: which AI platform sent traffic to which page. Keyed "platform||page".
+  const platformPageMap = {};
   aiSessions.forEach(s => {
     const platform = classifySource(s.referrer);
     const page = normalizePage(s.startPage || s.lastPage);
@@ -890,6 +952,10 @@ async function getAITraffic(siteId, days = 30) {
     landingPages[page] ||= { page, sessions: 0, conversions: 0 };
     landingPages[page].sessions++;
     if (s.converted) landingPages[page].conversions++;
+    const ppKey = platform + '||' + page;
+    platformPageMap[ppKey] ||= { platform, page, sessions: 0, conversions: 0 };
+    platformPageMap[ppKey].sessions++;
+    if (s.converted) platformPageMap[ppKey].conversions++;
     if (day) dailyMap[day] = (dailyMap[day] || 0) + 1;
   });
   const platforms = Object.values(byPlatform).map(p => ({
@@ -918,6 +984,7 @@ async function getAITraffic(siteId, days = 30) {
     avgScrollDepth: aiSessions.length ? Math.round(aiSessions.reduce((a, s) => a + (s.scrollDepth || 0), 0) / aiSessions.length) : 0,
     platforms,
     landingPages: Object.values(landingPages).sort((a, b) => b.sessions - a.sessions).slice(0, 10),
+    platformPages: Object.values(platformPageMap).sort((a, b) => b.sessions - a.sessions).slice(0, 20),
     trend,
     recentSessions: aiSessions.slice().sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen)).slice(0, 15)
   };
